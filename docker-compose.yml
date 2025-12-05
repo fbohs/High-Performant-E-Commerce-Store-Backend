@@ -1,0 +1,36 @@
+services:
+  redis_server_fundraise_bot:
+    image: redis:alpine3.22
+    container_name: fundraise_bot_mq
+    restart: always
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - mq_data_fundraise_bot:/data
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - "${REDIS_PASSWORD}"
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+
+  postgressql_server_fundraise_bot:
+    image: postgres:16.11-alpine
+    container_name: fundraise_bot_postgressql_server
+    environment:
+      POSTGRES_DATABASE: "${DOCKER_DATABASE_NAME}"
+      POSTGRES_USER: "${DOCKER_DATABASE_USERNAME}"
+      POSTGRES_PASSWORD: "${DOCKER_DATABASE_PASSWORD}"
+      POSTGRES_ROOT_PASSWORD: "${DOCKER_DATABASE_ROOT_PASSWORD}"
+    ports:
+      - "${DOCKER_DATABASE_PORT}:5432"
+    volumes:
+      - postgressql_data_fundraise_bot:/var/lib/postgresql
+
+volumes:
+  mq_data_fundraise_bot:
+    driver: local
+  postgressql_data_fundraise_bot:
+    driver: local

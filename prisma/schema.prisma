@@ -1,0 +1,20 @@
+datasource db {
+    provider = "postgresql"
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+generator kysely {
+    provider = "prisma-kysely"
+    output   = "../src/types"
+    fileName = "db.ts"
+}
+
+model User {
+    id       Int     @id @default(autoincrement())
+    email    String  @unique
+    name     String?
+    password String
+}
