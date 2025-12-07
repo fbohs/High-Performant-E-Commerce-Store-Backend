@@ -2,6 +2,7 @@ import Fastify, { FastifyInstance } from 'fastify';
 import dbPlugin from './plugins/db';
 import authPlugin from './middlewares/auth';
 import rootRoutes from './routes/root';
+import usersRoutes from './routes/users';
 import 'dotenv/config';
 
 const fastify = Fastify({
@@ -12,6 +13,7 @@ const fastify = Fastify({
 fastify.register(dbPlugin);
 fastify.register(authPlugin);
 fastify.register(rootRoutes);
+fastify.register(usersRoutes);
 
 const start = async () => {
     try {
