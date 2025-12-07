@@ -15,4 +15,20 @@ module.exports = {
     ],
     coverageDirectory: 'coverage',
     verbose: true,
+
+    // Jenkins CI integration - JUnit reporter
+    reporters: [
+        'default',
+        [
+            'jest-junit',
+            {
+                outputDirectory: 'coverage',
+                outputName: 'junit.xml',
+                classNameTemplate: '{classname}',
+                titleTemplate: '{title}',
+                ancestorSeparator: ' › ',
+                usePathForSuiteName: true,
+            },
+        ],
+    ],
 };
