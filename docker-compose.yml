@@ -1,4 +1,69 @@
+# =====================================================
+# Shared App Configuration (YAML Anchor)
+# =====================================================
+x-app-common: &app-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  environment: &app-env
+    - NODE_ENV=production
+    - DATABASE_URL=${DATABASE_URL}
+    - JWT_SECRET=${JWT_SECRET}
+    - REDIS_HOST=redis_server_fundraise_bot
+    - REDIS_PORT=6379
+    - REDIS_PASSWORD=${REDIS_PASSWORD}
+  depends_on:
+    postgressql_server_fundraise_bot:
+      condition: service_started
+    redis_server_fundraise_bot:
+      condition: service_started
+  restart: on-failure
+  healthcheck:
+    test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${PORT}/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 10s
+  networks:
+    - app_network
+
 services:
+  # =====================================================
+  # Application Instances (5 instances for VPS nginx)
+  # =====================================================
+  app-1:
+    <<: *app-common
+    container_name: ecommerce_app_1
+    ports:
+      - "3001:3000"
+
+  app-2:
+    <<: *app-common
+    container_name: ecommerce_app_2
+    ports:
+      - "3002:3000"
+
+  app-3:
+    <<: *app-common
+    container_name: ecommerce_app_3
+    ports:
+      - "3003:3000"
+
+  app-4:
+    <<: *app-common
+    container_name: ecommerce_app_4
+    ports:
+      - "3004:3000"
+
+  app-5:
+    <<: *app-common
+    container_name: ecommerce_app_5
+    ports:
+      - "3005:3000"
+
+  # =====================================================
+  # Redis Server
+  # =====================================================
   redis_server_fundraise_bot:
     image: redis:alpine3.22
     container_name: fundraise_bot_mq
@@ -15,7 +80,12 @@ services:
       - "${REDIS_PASSWORD}"
     environment:
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    networks:
+      - app_network
 
+  # =====================================================
+  # PostgreSQL Server
+  # =====================================================
   postgressql_server_fundraise_bot:
     image: postgres:16.11-alpine
     container_name: fundraise_bot_postgressql_server
@@ -28,9 +98,16 @@ services:
       - "${DOCKER_DATABASE_PORT}:5432"
     volumes:
       - postgressql_data_fundraise_bot:/var/lib/postgresql
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
 
 volumes:
   mq_data_fundraise_bot:
     driver: local
   postgressql_data_fundraise_bot:
     driver: local
+
