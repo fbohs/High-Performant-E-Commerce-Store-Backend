@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'NodeJS-20'  // Configure this name in Jenkins Global Tool Configuration
+        nodejs 'NodeJS-22'  // Configure this name in Jenkins Global Tool Configuration
     }
 
     environment {
@@ -41,10 +41,9 @@ pipeline {
 
         stage('Lint') {
             steps {
-                echo 'Running linter...'
-                // Uncomment when ESLint is configured
-                // sh 'npm run lint'
-                echo 'Linting skipped - configure ESLint to enable'
+                echo 'Running type check...'
+                sh 'npm run build'
+                echo 'Type check passed'
             }
         }
 

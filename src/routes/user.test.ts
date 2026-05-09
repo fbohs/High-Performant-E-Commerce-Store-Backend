@@ -1,7 +1,7 @@
 import { build } from './app';
 import { FastifyInstance } from 'fastify';
 
-describe('Users API', () => {
+describe('Auth API', () => {
     let app: FastifyInstance;
 
     beforeAll(async () => {
@@ -12,64 +12,71 @@ describe('Users API', () => {
         await app.close();
     });
 
-    describe('POST /users', () => {
-        it('should return 400 when email is not provided', async () => {
-            const response = await app.inject({
-                method: 'POST',
-                url: '/users',
-                payload: {}
-            });
-
-            expect(response.statusCode).toBe(400);
-            expect(response.json()).toEqual({ error: 'Email is required' });
-        });
-    });
-
-    describe('POST /users/register', () => {
+    describe('POST /auth/login', () => {
         it('should return 400 when email is missing', async () => {
             const response = await app.inject({
                 method: 'POST',
-                url: '/users/register',
-                payload: { password: 'Password1!' }
+                url: '/auth/login',
+                payload: { password: 'Password1!' },
             });
 
             expect(response.statusCode).toBe(400);
-            expect(response.json()).toEqual({ error: 'Email and password are required' });
         });
 
         it('should return 400 when password is missing', async () => {
             const response = await app.inject({
                 method: 'POST',
-                url: '/users/register',
-                payload: { email: 'test@example.com' }
+                url: '/auth/login',
+                payload: { email: 'test@example.com' },
             });
 
             expect(response.statusCode).toBe(400);
-            expect(response.json()).toEqual({ error: 'Email and password are required' });
+        });
+    });
+
+    describe('POST /auth/register', () => {
+        it('should return 400 when email is missing', async () => {
+            const response = await app.inject({
+                method: 'POST',
+                url: '/auth/register',
+                payload: { password: 'Password1!' },
+            });
+
+            expect(response.statusCode).toBe(400);
+        });
+
+        it('should return 400 when password is missing', async () => {
+            const response = await app.inject({
+                method: 'POST',
+                url: '/auth/register',
+                payload: { email: 'test@example.com' },
+            });
+
+            expect(response.statusCode).toBe(400);
         });
 
         it('should return 400 for invalid email format', async () => {
             const response = await app.inject({
                 method: 'POST',
-                url: '/users/register',
+                url: '/auth/register',
                 payload: {
                     email: 'invalid-email',
-                    password: 'Password1!'
-                }
+                    password: 'Password1!',
+                },
             });
 
             expect(response.statusCode).toBe(400);
             expect(response.json()).toEqual({ error: 'Invalid email format' });
         });
 
-        it('should return 400 for weak password - too short', async () => {
+        it('should return 400 for password too short', async () => {
             const response = await app.inject({
                 method: 'POST',
-                url: '/users/register',
+                url: '/auth/register',
                 payload: {
                     email: 'test@example.com',
-                    password: 'Ab1!'
-                }
+                    password: 'Ab1!',
+                },
             });
 
             expect(response.statusCode).toBe(400);
@@ -80,29 +87,49 @@ describe('Users API', () => {
         it('should return 400 for password without uppercase', async () => {
             const response = await app.inject({
                 method: 'POST',
-                url: '/users/register',
+                url: '/auth/register',
                 payload: {
                     email: 'test@example.com',
-                    password: 'password1!'
-                }
+                    password: 'password1!',
+                },
             });
 
             expect(response.statusCode).toBe(400);
-            expect(response.json().details).toContain('Password must contain at least one uppercase letter');
+            expect(response.json().details).toContain(
+                'Password must contain at least one uppercase letter'
+            );
         });
 
         it('should return 400 for password without special character', async () => {
             const response = await app.inject({
                 method: 'POST',
-                url: '/users/register',
+                url: '/auth/register',
                 payload: {
                     email: 'test@example.com',
-                    password: 'Password1'
-                }
+                    password: 'Password1',
+                },
             });
 
             expect(response.statusCode).toBe(400);
-            expect(response.json().details).toContain('Password must contain at least one special character');
+            expect(response.json().details).toContain(
+                'Password must contain at least one special character'
+            );
+        });
+
+        it('should return 201 for a valid registration', async () => {
+            const response = await app.inject({
+                method: 'POST',
+                url: '/auth/register',
+                payload: {
+                    email: 'valid@example.com',
+                    password: 'Password1!',
+                    name: 'Test User',
+                },
+            });
+
+            expect(response.statusCode).toBe(201);
+            expect(response.json().user).not.toHaveProperty('password');
+            expect(response.json().user).toHaveProperty('email');
         });
     });
 });

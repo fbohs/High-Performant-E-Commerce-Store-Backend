@@ -1,14 +1,27 @@
 import { Kysely } from 'kysely';
-import { DB } from './db';
-import jwt from 'jsonwebtoken';
+import { DB, Role } from './db';
+import Redis from 'ioredis';
+
+declare module '@fastify/jwt' {
+    interface FastifyJWT {
+        user: {
+            id: number;
+            email: string;
+            role: Role;
+            jti?: string;
+            iat?: number;
+            exp?: number;
+        };
+    }
+}
 
 declare module 'fastify' {
     export interface FastifyInstance {
         db: Kysely<DB>;
+        redis: Redis;
         authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
-    }
-
-    export interface FastifyRequest {
-        user?: string | jwt.JwtPayload;
+        authorizeRole: (
+            roles: Role[]
+        ) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     }
 }

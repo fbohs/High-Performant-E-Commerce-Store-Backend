@@ -1,144 +1,90 @@
 import { FastifyPluginAsync } from 'fastify';
-import bcrypt from 'bcryptjs';
 
-interface UsersBody {
-    email: string;
-}
+const users: FastifyPluginAsync = async (fastify): Promise<void> => {
+    // GET /users — admin only, search/list users
+    fastify.get<{
+        Querystring: { email?: string; page?: number; limit?: number };
+    }>('/users', {
+        preHandler: [fastify.authorizeRole(['ADMIN'])],
+        schema: {
+            querystring: {
+                type: 'object',
+                properties: {
+                    email: { type: 'string' },
+                    page: { type: 'integer', minimum: 1, default: 1 },
+                    limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+                },
+            },
+        },
+    }, async (request) => {
+        const { email, page = 1, limit = 20 } = request.query;
+        const offset = (page - 1) * limit;
 
-interface RegisterBody {
-    email: string;
-    password: string;
-    name?: string;
-}
+        let query = fastify.db
+            .selectFrom('User')
+            .select(['id', 'email', 'name', 'phone', 'role', 'isVerified', 'createdAt']);
 
-// Email validation regex (RFC 5322 simplified)
-const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-
-// Password requirements
-const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_REGEX = {
-    uppercase: /[A-Z]/,
-    lowercase: /[a-z]/,
-    number: /[0-9]/,
-    special: /[!@#$%^&*(),.?":{}|<>]/
-};
-
-// Sanitize and validate email
-function sanitizeEmail(email: string): string {
-    return email.trim().toLowerCase();
-}
-
-// Validate email format
-function isValidEmail(email: string): boolean {
-    return EMAIL_REGEX.test(email) && email.length <= 254;
-}
-
-// Validate password strength
-function validatePassword(password: string): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
-
-    if (password.length < PASSWORD_MIN_LENGTH) {
-        errors.push(`Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
-    }
-    if (!PASSWORD_REGEX.uppercase.test(password)) {
-        errors.push('Password must contain at least one uppercase letter');
-    }
-    if (!PASSWORD_REGEX.lowercase.test(password)) {
-        errors.push('Password must contain at least one lowercase letter');
-    }
-    if (!PASSWORD_REGEX.number.test(password)) {
-        errors.push('Password must contain at least one number');
-    }
-    if (!PASSWORD_REGEX.special.test(password)) {
-        errors.push('Password must contain at least one special character');
-    }
-
-    return { valid: errors.length === 0, errors };
-}
-
-// Sanitize name input
-function sanitizeName(name: string | undefined): string | null {
-    if (!name) return null;
-    // Remove extra whitespace, trim, and limit length
-    return name.trim().replace(/\s+/g, ' ').slice(0, 100);
-}
-
-const users: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
-    // Get users by email
-    fastify.post<{ Body: UsersBody }>('/users', async function (request, reply) {
-        const { email } = request.body;
-
-        if (!email) {
-            return reply.status(400).send({ error: 'Email is required' });
+        if (email) {
+            query = query.where('email', 'like', `%${email.toLowerCase()}%`);
         }
 
-        const sanitizedEmail = sanitizeEmail(email);
+        const [users, total] = await Promise.all([
+            query.limit(limit).offset(offset).execute(),
+            fastify.db
+                .selectFrom('User')
+                .select(fastify.db.fn.countAll<number>().as('count'))
+                .executeTakeFirst(),
+        ]);
 
-        const usersList = await fastify.db
-            .selectFrom('User')
-            .selectAll()
-            .where('email', '=', sanitizedEmail)
-            .execute();
-
-        return { users: usersList };
+        return { users, pagination: { page, limit, total: total?.count ?? 0 } };
     });
 
-    // Register new user
-    fastify.post<{ Body: RegisterBody }>('/users/register', async function (request, reply) {
-        const { email, password, name } = request.body;
+    // GET /users/:id — own profile or admin
+    fastify.get<{ Params: { id: string } }>('/users/:id', {
+        preHandler: [fastify.authenticate],
+    }, async (request, reply) => {
+        const targetId = Number(request.params.id);
+        const { id: requesterId, role } = request.user;
 
-        // Validate required fields
-        if (!email || !password) {
-            return reply.status(400).send({ error: 'Email and password are required' });
+        if (role !== 'ADMIN' && requesterId !== targetId) {
+            return reply.status(403).send({ error: 'Forbidden' });
         }
 
-        // Sanitize inputs
-        const sanitizedEmail = sanitizeEmail(email);
-        const sanitizedName = sanitizeName(name);
-
-        // Validate email format
-        if (!isValidEmail(sanitizedEmail)) {
-            return reply.status(400).send({ error: 'Invalid email format' });
-        }
-
-        // Validate password strength
-        const passwordValidation = validatePassword(password);
-        if (!passwordValidation.valid) {
-            return reply.status(400).send({
-                error: 'Password does not meet requirements',
-                details: passwordValidation.errors
-            });
-        }
-
-        // Check for existing user
-        const existingUser = await fastify.db
+        const user = await fastify.db
             .selectFrom('User')
-            .select('id')
-            .where('email', '=', sanitizedEmail)
+            .select(['id', 'email', 'name', 'phone', 'role', 'isVerified', 'createdAt'])
+            .where('id', '=', targetId)
             .executeTakeFirst();
 
-        if (existingUser) {
-            return reply.status(409).send({ error: 'Email already registered' });
+        if (!user) {
+            return reply.status(404).send({ error: 'User not found' });
         }
 
-        // Hash password with bcrypt (cost factor 12)
-        const hashedPassword = await bcrypt.hash(password, 12);
+        return { user };
+    });
 
-        // Insert new user
-        const newUser = await fastify.db
-            .insertInto('User')
-            .values({
-                email: sanitizedEmail,
-                password: hashedPassword,
-                name: sanitizedName
-            })
-            .returning(['id', 'email', 'name'])
+    // DELETE /users/:id — own account or admin
+    fastify.delete<{ Params: { id: string } }>('/users/:id', {
+        preHandler: [fastify.authenticate],
+    }, async (request, reply) => {
+        const targetId = Number(request.params.id);
+        const { id: requesterId, role } = request.user;
+
+        if (role !== 'ADMIN' && requesterId !== targetId) {
+            return reply.status(403).send({ error: 'Forbidden' });
+        }
+
+        const deleted = await fastify.db
+            .deleteFrom('User')
+            .where('id', '=', targetId)
+            .returning('id')
             .executeTakeFirst();
 
-        return reply.status(201).send({
-            message: 'User registered successfully',
-            user: newUser
-        });
+        if (!deleted) {
+            return reply.status(404).send({ error: 'User not found' });
+        }
+
+        return reply.status(204).send();
     });
 };
 
