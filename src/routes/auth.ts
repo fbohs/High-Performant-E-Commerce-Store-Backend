@@ -130,21 +130,6 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
         });
     });
 
-    // GET /auth/me
-    fastify.get('/auth/me', {
-        preHandler: [fastify.authenticate],
-    }, async (request) => {
-        const { id } = request.user;
-
-        const user = await fastify.db
-            .selectFrom('User')
-            .select(['id', 'email', 'name', 'phone', 'role', 'isVerified', 'createdAt'])
-            .where('id', '=', id)
-            .executeTakeFirst();
-
-        return { user };
-    });
-
     // PUT /auth/me
     fastify.put<{
         Body: { name?: string; phone?: string };
