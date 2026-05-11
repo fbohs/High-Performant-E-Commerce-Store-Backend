@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
+import { updateTimestamp } from '../utils/db-helper';
 
 interface AddressBody {
     label?: string;
@@ -14,6 +15,7 @@ interface AddressBody {
 const addressBodySchema = {
     type: 'object',
     required: ['line1', 'city', 'state', 'country', 'postalCode'],
+    additionalProperties: false,
     properties: {
         label: { type: 'string', maxLength: 50 },
         line1: { type: 'string', maxLength: 200 },
@@ -50,20 +52,21 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
         const { id } = request.user;
         const { label, line1, line2, city, state, country, postalCode, isDefault = false } = request.body;
 
-        // If this is the default address, clear other defaults first
-        if (isDefault) {
-            await fastify.db
-                .updateTable('Address')
-                .set({ isDefault: false, updatedAt: new Date() })
-                .where('userId', '=', id)
-                .execute();
-        }
+        const address = await fastify.db.transaction().execute(async (tx) => {
+            if (isDefault) {
+                await tx
+                    .updateTable('Address')
+                    .set(updateTimestamp({ isDefault: false }))
+                    .where('userId', '=', id)
+                    .execute();
+            }
 
-        const address = await fastify.db
-            .insertInto('Address')
-            .values({ userId: id, label: label || null, line1, line2: line2 || null, city, state, country, postalCode, isDefault })
-            .returningAll()
-            .executeTakeFirst();
+            return tx
+                .insertInto('Address')
+                .values({ userId: id, label: label || null, line1, line2: line2 || null, city, state, country, postalCode, isDefault })
+                .returningAll()
+                .executeTakeFirst();
+        });
 
         return reply.status(201).send({ address });
     });
@@ -75,6 +78,7 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
             body: {
                 type: 'object',
                 properties: addressBodySchema.properties,
+                additionalProperties: false,
             },
         },
     }, async (request, reply) => {
@@ -92,25 +96,35 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
             return reply.status(404).send({ error: 'Address not found' });
         }
 
-        const { isDefault, ...rest } = request.body;
+        const { label, line1, line2, city, state, country, postalCode, isDefault } = request.body;
 
-        if (isDefault) {
-            await fastify.db
-                .updateTable('Address')
-                .set({ isDefault: false, updatedAt: new Date() })
-                .where('userId', '=', userId)
-                .execute();
-        }
-
-        const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() };
+        const updates: Record<string, unknown> = {};
+        if (label !== undefined) updates.label = label || null;
+        if (line1 !== undefined) updates.line1 = line1;
+        if (line2 !== undefined) updates.line2 = line2 || null;
+        if (city !== undefined) updates.city = city;
+        if (state !== undefined) updates.state = state;
+        if (country !== undefined) updates.country = country;
+        if (postalCode !== undefined) updates.postalCode = postalCode;
         if (isDefault !== undefined) updates.isDefault = isDefault;
 
-        const updated = await fastify.db
-            .updateTable('Address')
-            .set(updates)
-            .where('id', '=', addressId)
-            .returningAll()
-            .executeTakeFirst();
+        const updated = await fastify.db.transaction().execute(async (tx) => {
+            if (isDefault) {
+                await tx
+                    .updateTable('Address')
+                    .set(updateTimestamp({ isDefault: false }))
+                    .where('userId', '=', userId)
+                    .execute();
+            }
+
+            return tx
+                .updateTable('Address')
+                .set(updateTimestamp(updates))
+                .where('id', '=', addressId)
+                .where('userId', '=', userId)
+                .returningAll()
+                .executeTakeFirst();
+        });
 
         return reply.send({ address: updated });
     });
