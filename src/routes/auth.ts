@@ -75,7 +75,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
                 name: sanitizedName,
                 phone: phone?.trim() || null,
             })
-            .returning(['id', 'email', 'name', 'role'])
+            .returning(['publicId', 'email', 'name', 'role'])
             .executeTakeFirst();
 
         return reply.status(201).send({
@@ -124,7 +124,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
 
         return reply.send({
             token,
-            user: { id: user.id, email: user.email, name: user.name, role: user.role },
+            user: { publicId: user.publicId, email: user.email, name: user.name, role: user.role },
         });
     });
 
@@ -150,11 +150,15 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
         if (name !== undefined) updates.name = name.trim().replace(/\s+/g, ' ').slice(0, 100);
         if (phone !== undefined) updates.phone = phone.trim() || null;
 
+        if (Object.keys(updates).length === 0) {
+            return reply.status(400).send({ error: 'No updatable fields provided' });
+        }
+
         const updated = await fastify.db
             .updateTable('User')
             .set(updateTimestamp(updates))
             .where('id', '=', id)
-            .returning(['id', 'email', 'name', 'phone', 'role'])
+            .returning(['publicId', 'email', 'name', 'phone', 'role'])
             .executeTakeFirst();
 
         return reply.send({ user: updated });

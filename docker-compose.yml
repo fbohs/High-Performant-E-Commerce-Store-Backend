@@ -87,7 +87,7 @@ services:
   # PostgreSQL
   # =====================================================
   ecommerce_postgres:
-    image: postgres:16.11-alpine
+    image: postgres:18-alpine
     container_name: ecommerce_postgres
     environment:
       POSTGRES_DB: "${DOCKER_DATABASE_NAME}"
@@ -96,7 +96,7 @@ services:
     ports:
       - "${DOCKER_DATABASE_PORT}:5432"
     volumes:
-      - ecommerce_postgres_data:/var/lib/postgresql/data
+      - ecommerce_postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DOCKER_DATABASE_USERNAME} -d ${DOCKER_DATABASE_NAME}"]
       interval: 10s

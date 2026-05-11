@@ -43,7 +43,7 @@ const users: FastifyPluginAsync = async (fastify): Promise<void> => {
     fastify.get<{ Params: { id: string } }>('/users/:id', {
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
-        const targetId = Number(request.params.id);
+        const targetId = request.params.id;
         const { id: requesterId, role } = request.user;
 
         if (role !== 'ADMIN' && requesterId !== targetId) {
@@ -67,7 +67,7 @@ const users: FastifyPluginAsync = async (fastify): Promise<void> => {
     fastify.delete<{ Params: { id: string } }>('/users/:id', {
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
-        const targetId = Number(request.params.id);
+        const targetId = request.params.id;
         const { id: requesterId, role } = request.user;
 
         if (role !== 'ADMIN' && requesterId !== targetId) {
