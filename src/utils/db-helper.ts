@@ -1,10 +1,9 @@
 /**
- * Adds createdAt and updatedAt timestamps to any object
+ * Adds an updatedAt timestamp for update operations.
  */
-export const addTimestamps = <T extends Record<string, any>>(
-    data: T
-): T & { createdAt: Date; updatedAt: Date } => ({
+export const updateTimestamp = <T extends Record<string, any>>(
+    data: T = {} as T
+): T & { updatedAt: Date } => ({
     ...data,
-    createdAt: new Date(),
     updatedAt: new Date(),
 });

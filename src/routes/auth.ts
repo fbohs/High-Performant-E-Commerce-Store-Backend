@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
-import { addTimestamps } from '../utils/db-helper';
+import { updateTimestamp } from '../utils/db-helper';
 
 const EMAIL_REGEX =
     /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -67,16 +67,14 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
         const hashedPassword = await bcrypt.hash(password, 12);
         const sanitizedName = name ? name.trim().replace(/\s+/g, ' ').slice(0, 100) : null;
 
-        const finalData = addTimestamps({
-            email,
-            password: hashedPassword,
-            name: sanitizedName,
-            phone: phone?.trim() || null,
-        });
-
         const newUser = await fastify.db
             .insertInto('User')
-            .values(finalData)
+            .values({
+                email,
+                password: hashedPassword,
+                name: sanitizedName,
+                phone: phone?.trim() || null,
+            })
             .returning(['id', 'email', 'name', 'role'])
             .executeTakeFirst();
 
@@ -148,15 +146,13 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
         const { id } = request.user;
         const { name, phone } = request.body;
 
-        const updates: Record<string, unknown> = {
-            updatedAt: new Date(),
-        };
+        const updates: Record<string, unknown> = {};
         if (name !== undefined) updates.name = name.trim().replace(/\s+/g, ' ').slice(0, 100);
         if (phone !== undefined) updates.phone = phone.trim() || null;
 
         const updated = await fastify.db
             .updateTable('User')
-            .set(updates)
+            .set(updateTimestamp(updates))
             .where('id', '=', id)
             .returning(['id', 'email', 'name', 'phone', 'role'])
             .executeTakeFirst();
@@ -203,7 +199,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
 
         await fastify.db
             .updateTable('User')
-            .set({ password: await bcrypt.hash(newPassword, 12), updatedAt: new Date() })
+            .set(updateTimestamp({ password: await bcrypt.hash(newPassword, 12) }))
             .where('id', '=', id)
             .execute();
 
