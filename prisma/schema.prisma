@@ -32,8 +32,8 @@ model User {
     id         BigInt     @id @default(autoincrement())
     publicId   String     @unique @default(dbgenerated("uuidv7()")) @db.Uuid
     email      String     @unique
-    phone      String?    @unique
-    name       String?
+    phone      String     @unique
+    name       String
     password   String
     role       Role       @default(USER)
     isVerified Boolean    @default(false)

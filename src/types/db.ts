@@ -136,8 +136,8 @@ export type User = {
     id: Generated<string>;
     publicId: Generated<string>;
     email: string;
-    phone: string | null;
-    name: string | null;
+    phone: string;
+    name: string;
     password: string;
     role: Generated<Role>;
     isVerified: Generated<boolean>;
