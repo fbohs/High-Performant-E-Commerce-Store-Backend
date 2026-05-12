@@ -29,7 +29,8 @@ enum OrderStatus {
 }
 
 model User {
-    id         Int        @id @default(autoincrement())
+    id         BigInt     @id @default(autoincrement())
+    publicId   String     @unique @default(dbgenerated("uuidv7()")) @db.Uuid
     email      String     @unique
     phone      String?    @unique
     name       String?
@@ -42,11 +43,25 @@ model User {
     orders     Order[]
     reviews    Review[]
     cartItems  CartItem[]
+    sessions   Session[]
+}
+
+model Session {
+    id        BigInt   @id @default(autoincrement())
+    token     String   @unique
+    userId    BigInt
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([expiresAt])
 }
 
 model Address {
-    id         Int      @id @default(autoincrement())
-    userId     Int
+    id         BigInt   @id @default(autoincrement())
+    publicId   String   @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+    userId     BigInt
     label      String?
     line1      String
     line2      String?
@@ -62,11 +77,12 @@ model Address {
 }
 
 model Category {
-    id          Int        @id @default(autoincrement())
+    id          BigInt     @id @default(autoincrement())
+    publicId    String     @unique @default(dbgenerated("uuidv7()")) @db.Uuid
     name        String     @unique
     slug        String     @unique
     description String?
-    parentId    Int?
+    parentId    BigInt?
     parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
     children    Category[] @relation("CategoryTree")
     products    Product[]
@@ -75,7 +91,8 @@ model Category {
 }
 
 model Product {
-    id           Int         @id @default(autoincrement())
+    id           BigInt      @id @default(autoincrement())
+    publicId     String      @unique @default(dbgenerated("uuidv7()")) @db.Uuid
     name         String
     slug         String      @unique
     description  String?
@@ -84,8 +101,8 @@ model Product {
     sku          String      @unique
     brand        String?
     images       String[]
-    categoryId   Int
-    merchantId   Int
+    categoryId   BigInt
+    merchantId   BigInt
     isActive     Boolean     @default(true)
     avgRating    Decimal?    @db.Decimal(3, 2)
     reviewCount  Int         @default(0)
@@ -99,8 +116,8 @@ model Product {
 }
 
 model Inventory {
-    id        Int      @id @default(autoincrement())
-    productId Int      @unique
+    id        BigInt   @id @default(autoincrement())
+    productId BigInt   @unique
     quantity  Int      @default(0)
     reserved  Int      @default(0)
     updatedAt DateTime @default(now()) @updatedAt
@@ -108,9 +125,10 @@ model Inventory {
 }
 
 model Review {
-    id        Int      @id @default(autoincrement())
-    userId    Int
-    productId Int
+    id        BigInt   @id @default(autoincrement())
+    publicId  String   @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+    userId    BigInt
+    productId BigInt
     rating    Int
     title     String?
     body      String?
@@ -123,9 +141,9 @@ model Review {
 }
 
 model CartItem {
-    id        Int      @id @default(autoincrement())
-    userId    Int
-    productId Int
+    id        BigInt   @id @default(autoincrement())
+    userId    BigInt
+    productId BigInt
     quantity  Int      @default(1)
     createdAt DateTime @default(now())
     updatedAt DateTime @default(now()) @updatedAt
@@ -136,9 +154,10 @@ model CartItem {
 }
 
 model Order {
-    id           Int         @id @default(autoincrement())
-    userId       Int
-    addressId    Int?
+    id           BigInt      @id @default(autoincrement())
+    publicId     String      @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+    userId       BigInt
+    addressId    BigInt?
     status       OrderStatus @default(PENDING)
     subtotal     Decimal     @db.Decimal(10, 2)
     tax          Decimal     @db.Decimal(10, 2) @default(0)
@@ -156,9 +175,9 @@ model Order {
 }
 
 model OrderItem {
-    id        Int      @id @default(autoincrement())
-    orderId   Int
-    productId Int
+    id        BigInt   @id @default(autoincrement())
+    orderId   BigInt
+    productId BigInt
     quantity  Int
     price     Decimal  @db.Decimal(10, 2)
     createdAt DateTime @default(now())
@@ -167,8 +186,8 @@ model OrderItem {
 }
 
 model Payment {
-    id          Int      @id @default(autoincrement())
-    orderId     Int      @unique
+    id          BigInt   @id @default(autoincrement())
+    orderId     BigInt   @unique
     provider    String
     providerRef String?
     status      String

@@ -12,6 +12,20 @@ interface AddressBody {
     isDefault?: boolean;
 }
 
+const ADDRESS_PUBLIC_COLUMNS = [
+    'publicId as id',
+    'label',
+    'line1',
+    'line2',
+    'city',
+    'state',
+    'country',
+    'postalCode',
+    'isDefault',
+    'createdAt',
+    'updatedAt',
+] as const;
+
 const addressBodySchema = {
     type: 'object',
     required: ['line1', 'city', 'state', 'country', 'postalCode'],
@@ -36,7 +50,7 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
         const { id } = request.user;
         const list = await fastify.db
             .selectFrom('Address')
-            .selectAll()
+            .select(ADDRESS_PUBLIC_COLUMNS)
             .where('userId', '=', id)
             .orderBy('isDefault', 'desc')
             .orderBy('createdAt', 'desc')
@@ -64,17 +78,22 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
             return tx
                 .insertInto('Address')
                 .values({ userId: id, label: label || null, line1, line2: line2 || null, city, state, country, postalCode, isDefault })
-                .returningAll()
+                .returning(ADDRESS_PUBLIC_COLUMNS)
                 .executeTakeFirst();
         });
 
         return reply.status(201).send({ address });
     });
 
-    // PUT /users/me/addresses/:id
-    fastify.put<{ Params: { id: string }; Body: Partial<AddressBody> }>('/users/me/addresses/:id', {
+    // PUT /users/me/addresses/:publicId
+    fastify.put<{ Params: { publicId: string }; Body: Partial<AddressBody> }>('/users/me/addresses/:publicId', {
         preHandler: [fastify.authenticate],
         schema: {
+            params: {
+                type: 'object',
+                required: ['publicId'],
+                properties: { publicId: { type: 'string', format: 'uuid' } },
+            },
             body: {
                 type: 'object',
                 properties: addressBodySchema.properties,
@@ -83,12 +102,12 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
         },
     }, async (request, reply) => {
         const userId = request.user.id;
-        const addressId = Number(request.params.id);
+        const { publicId } = request.params;
 
         const existing = await fastify.db
             .selectFrom('Address')
             .select('id')
-            .where('id', '=', addressId)
+            .where('publicId', '=', publicId)
             .where('userId', '=', userId)
             .executeTakeFirst();
 
@@ -108,6 +127,10 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
         if (postalCode !== undefined) updates.postalCode = postalCode;
         if (isDefault !== undefined) updates.isDefault = isDefault;
 
+        if (Object.keys(updates).length === 0) {
+            return reply.status(400).send({ error: 'No updatable fields provided' });
+        }
+
         const updated = await fastify.db.transaction().execute(async (tx) => {
             if (isDefault) {
                 await tx
@@ -120,25 +143,31 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
             return tx
                 .updateTable('Address')
                 .set(updateTimestamp(updates))
-                .where('id', '=', addressId)
-                .where('userId', '=', userId)
-                .returningAll()
+                .where('id', '=', existing.id)
+                .returning(ADDRESS_PUBLIC_COLUMNS)
                 .executeTakeFirst();
         });
 
         return reply.send({ address: updated });
     });
 
-    // DELETE /users/me/addresses/:id
-    fastify.delete<{ Params: { id: string } }>('/users/me/addresses/:id', {
+    // DELETE /users/me/addresses/:publicId
+    fastify.delete<{ Params: { publicId: string } }>('/users/me/addresses/:publicId', {
         preHandler: [fastify.authenticate],
+        schema: {
+            params: {
+                type: 'object',
+                required: ['publicId'],
+                properties: { publicId: { type: 'string', format: 'uuid' } },
+            },
+        },
     }, async (request, reply) => {
         const userId = request.user.id;
-        const addressId = Number(request.params.id);
+        const { publicId } = request.params;
 
         const deleted = await fastify.db
             .deleteFrom('Address')
-            .where('id', '=', addressId)
+            .where('publicId', '=', publicId)
             .where('userId', '=', userId)
             .returning('id')
             .executeTakeFirst();

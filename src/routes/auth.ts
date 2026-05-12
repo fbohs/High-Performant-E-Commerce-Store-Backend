@@ -1,7 +1,9 @@
 import { FastifyPluginAsync } from 'fastify';
 import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { randomBytes } from 'crypto';
 import { updateTimestamp } from '../utils/db-helper';
+
+const SESSION_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 
 const EMAIL_REGEX =
     /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -30,6 +32,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
             body: {
                 type: 'object',
                 required: ['email', 'password'],
+                additionalProperties: false,
                 properties: {
                     email: { type: 'string', maxLength: 254 },
                     password: { type: 'string', maxLength: 128 },
@@ -75,7 +78,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
                 name: sanitizedName,
                 phone: phone?.trim() || null,
             })
-            .returning(['id', 'email', 'name', 'role'])
+            .returning(['publicId as id', 'email', 'name', 'role'])
             .executeTakeFirst();
 
         return reply.status(201).send({
@@ -92,6 +95,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
             body: {
                 type: 'object',
                 required: ['email', 'password'],
+                additionalProperties: false,
                 properties: {
                     email: { type: 'string' },
                     password: { type: 'string' },
@@ -116,15 +120,25 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
             return reply.status(401).send({ error: 'Invalid credentials' });
         }
 
-        const jti = randomUUID();
-        const token = fastify.jwt.sign(
-            { id: user.id, email: user.email, role: user.role, jti },
-            { expiresIn: '7d' }
-        );
+        const token = randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + SESSION_TTL * 1000);
+
+        await fastify.db
+            .insertInto('Session')
+            .values({ token, userId: user.id, expiresAt })
+            .execute();
+
+        await fastify.redis
+            .setex(
+                `session:${token}`,
+                SESSION_TTL,
+                JSON.stringify({ userId: user.id, email: user.email, role: user.role })
+            )
+            .catch(() => {});
 
         return reply.send({
             token,
-            user: { id: user.id, email: user.email, name: user.name, role: user.role },
+            user: { id: user.publicId, email: user.email, name: user.name, role: user.role },
         });
     });
 
@@ -136,6 +150,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
         schema: {
             body: {
                 type: 'object',
+                additionalProperties: false,
                 properties: {
                     name: { type: 'string', maxLength: 100 },
                     phone: { type: 'string', maxLength: 20 },
@@ -150,11 +165,15 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
         if (name !== undefined) updates.name = name.trim().replace(/\s+/g, ' ').slice(0, 100);
         if (phone !== undefined) updates.phone = phone.trim() || null;
 
+        if (Object.keys(updates).length === 0) {
+            return reply.status(400).send({ error: 'No updatable fields provided' });
+        }
+
         const updated = await fastify.db
             .updateTable('User')
             .set(updateTimestamp(updates))
             .where('id', '=', id)
-            .returning(['id', 'email', 'name', 'phone', 'role'])
+            .returning(['publicId as id', 'email', 'name', 'phone', 'role'])
             .executeTakeFirst();
 
         return reply.send({ user: updated });
@@ -169,6 +188,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
             body: {
                 type: 'object',
                 required: ['currentPassword', 'newPassword'],
+                additionalProperties: false,
                 properties: {
                     currentPassword: { type: 'string' },
                     newPassword: { type: 'string', minLength: 8, maxLength: 128 },
@@ -206,20 +226,16 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
         return reply.send({ message: 'Password updated successfully' });
     });
 
-    // POST /auth/logout — blacklists the token's jti in Redis until it expires
+    // POST /auth/logout — invalidates the current session
     fastify.post('/auth/logout', {
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
-        const { jti, exp } = request.user;
+        const { sessionToken } = request.user;
 
-        if (jti && exp) {
-            const ttl = exp - Math.floor(Date.now() / 1000);
-            if (ttl > 0) {
-                await fastify.redis.setex(`blacklist:${jti}`, ttl, '1').catch(() => {
-                    fastify.log.warn('Redis unavailable — token not blacklisted');
-                });
-            }
-        }
+        await Promise.all([
+            fastify.redis.del(`session:${sessionToken}`).catch(() => {}),
+            fastify.db.deleteFrom('Session').where('token', '=', sessionToken).execute(),
+        ]);
 
         return reply.send({ message: 'Logged out successfully' });
     });
