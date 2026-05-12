@@ -13,7 +13,7 @@ interface AddressBody {
 }
 
 const ADDRESS_PUBLIC_COLUMNS = [
-    'publicId',
+    'publicId as id',
     'label',
     'line1',
     'line2',

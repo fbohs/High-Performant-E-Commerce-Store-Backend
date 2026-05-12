@@ -22,7 +22,7 @@ const users: FastifyPluginAsync = async (fastify): Promise<void> => {
 
         let query = fastify.db
             .selectFrom('User')
-            .select(['id', 'email', 'name', 'phone', 'role', 'isVerified', 'createdAt']);
+            .select(['publicId as id', 'email', 'name', 'phone', 'role', 'isVerified', 'createdAt']);
 
         if (email) {
             query = query.where('email', 'like', `%${email.toLowerCase()}%`);
@@ -52,7 +52,7 @@ const users: FastifyPluginAsync = async (fastify): Promise<void> => {
 
         const user = await fastify.db
             .selectFrom('User')
-            .select(['id', 'email', 'name', 'phone', 'role', 'isVerified', 'createdAt'])
+            .select(['publicId as id', 'email', 'name', 'phone', 'role', 'isVerified', 'createdAt'])
             .where('id', '=', targetId)
             .executeTakeFirst();
 

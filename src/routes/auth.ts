@@ -78,7 +78,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
                 name: sanitizedName,
                 phone: phone?.trim() || null,
             })
-            .returning(['publicId', 'email', 'name', 'role'])
+            .returning(['publicId as id', 'email', 'name', 'role'])
             .executeTakeFirst();
 
         return reply.status(201).send({
@@ -138,7 +138,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
 
         return reply.send({
             token,
-            user: { publicId: user.publicId, email: user.email, name: user.name, role: user.role },
+            user: { id: user.publicId, email: user.email, name: user.name, role: user.role },
         });
     });
 
@@ -173,7 +173,7 @@ const auth: FastifyPluginAsync = async (fastify): Promise<void> => {
             .updateTable('User')
             .set(updateTimestamp(updates))
             .where('id', '=', id)
-            .returning(['publicId', 'email', 'name', 'phone', 'role'])
+            .returning(['publicId as id', 'email', 'name', 'phone', 'role'])
             .executeTakeFirst();
 
         return reply.send({ user: updated });
