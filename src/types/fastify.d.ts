@@ -2,21 +2,17 @@ import { Kysely } from 'kysely';
 import { DB, Role } from './db';
 import Redis from 'ioredis';
 
-declare module '@fastify/jwt' {
-    interface FastifyJWT {
+declare module 'fastify' {
+    interface FastifyRequest {
         user: {
             id: string;
             email: string;
             role: Role;
-            jti?: string;
-            iat?: number;
-            exp?: number;
+            sessionToken: string;
         };
     }
-}
 
-declare module 'fastify' {
-    export interface FastifyInstance {
+    interface FastifyInstance {
         db: Kysely<DB>;
         redis: Redis;
         authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;

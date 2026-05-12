@@ -89,6 +89,11 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
     fastify.put<{ Params: { publicId: string }; Body: Partial<AddressBody> }>('/users/me/addresses/:publicId', {
         preHandler: [fastify.authenticate],
         schema: {
+            params: {
+                type: 'object',
+                required: ['publicId'],
+                properties: { publicId: { type: 'string', format: 'uuid' } },
+            },
             body: {
                 type: 'object',
                 properties: addressBodySchema.properties,
@@ -149,6 +154,13 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
     // DELETE /users/me/addresses/:publicId
     fastify.delete<{ Params: { publicId: string } }>('/users/me/addresses/:publicId', {
         preHandler: [fastify.authenticate],
+        schema: {
+            params: {
+                type: 'object',
+                required: ['publicId'],
+                properties: { publicId: { type: 'string', format: 'uuid' } },
+            },
+        },
     }, async (request, reply) => {
         const userId = request.user.id;
         const { publicId } = request.params;

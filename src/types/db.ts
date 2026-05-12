@@ -125,6 +125,13 @@ export type Review = {
     createdAt: Generated<Timestamp>;
     updatedAt: Generated<Timestamp>;
 };
+export type Session = {
+    id: Generated<string>;
+    token: string;
+    userId: string;
+    expiresAt: Timestamp;
+    createdAt: Generated<Timestamp>;
+};
 export type User = {
     id: Generated<string>;
     publicId: Generated<string>;
@@ -147,5 +154,6 @@ export type DB = {
     Payment: Payment;
     Product: Product;
     Review: Review;
+    Session: Session;
     User: User;
 };

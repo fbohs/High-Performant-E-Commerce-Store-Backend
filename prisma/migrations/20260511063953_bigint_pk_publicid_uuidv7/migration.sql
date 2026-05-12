@@ -1,41 +1,41 @@
 -- DropForeignKey
-ALTER TABLE "Address" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Address" DROP CONSTRAINT IF EXISTS "Address_userId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "CartItem" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "CartItem" DROP CONSTRAINT IF EXISTS "CartItem_userId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "CartItem" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "CartItem" DROP CONSTRAINT IF EXISTS "CartItem_productId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Category" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Category" DROP CONSTRAINT IF EXISTS "Category_parentId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Inventory" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Inventory" DROP CONSTRAINT IF EXISTS "Inventory_productId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Order" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Order" DROP CONSTRAINT IF EXISTS "Order_userId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Order" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Order" DROP CONSTRAINT IF EXISTS "Order_addressId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "OrderItem" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "OrderItem" DROP CONSTRAINT IF EXISTS "OrderItem_orderId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "OrderItem" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "OrderItem" DROP CONSTRAINT IF EXISTS "OrderItem_productId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Payment" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Payment" DROP CONSTRAINT IF EXISTS "Payment_orderId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Product" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Product" DROP CONSTRAINT IF EXISTS "Product_categoryId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Review" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Review" DROP CONSTRAINT IF EXISTS "Review_userId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Review" DROP CONSTRAINT IF EXISTS "\1_fkey";
+ALTER TABLE "Review" DROP CONSTRAINT IF EXISTS "Review_productId_fkey";
 
 -- AlterTable
 ALTER TABLE "Address" DROP CONSTRAINT "Address_pkey",
