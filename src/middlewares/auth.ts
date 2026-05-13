@@ -6,6 +6,7 @@ const SESSION_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 export default fp(async (fastify) => {
     fastify.decorate('authenticate', async (request: any, reply: any) => {
         const authHeader = request.headers.authorization as string | undefined;
+        console.log('authHeader', authHeader);
         if (!authHeader?.startsWith('Bearer ')) {
             return reply.code(401).send({ error: 'Unauthorized' });
         }
@@ -44,7 +45,7 @@ export default fp(async (fastify) => {
             sessionData = { userId: session.userId, email: session.email, role: session.role };
             await fastify.redis
                 .setex(`session:${token}`, SESSION_TTL, JSON.stringify(sessionData))
-                .catch(() => {});
+                .catch(() => { });
         }
 
         request.user = {
